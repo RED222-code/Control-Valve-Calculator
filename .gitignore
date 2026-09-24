@@ -1,0 +1,34 @@
+# Dependencies and package caches
+node_modules/
+.npm-cache/
+
+# Build output
+dist/
+
+# Local environment and secrets (keep the example template)
+.env
+.env.*
+!.env.example
+*.local
+
+# Test reports, coverage, and generated previews
+test-results/
+playwright-report/
+playwright/.cache/
+coverage/
+artifacts/
+/tmp/
+
+# Logs
+*.log
+
+# Operating system files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Local IDE files
+.idea/
+*.suo
+*.swp
+*.swo
