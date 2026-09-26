@@ -141,8 +141,10 @@ test('persists workbook results and resumes unprocessed sheets after reload', as
   await expectSavedResult(page, gasTag, gasCvs);
   await page.reload();
   await expect(page.getByText('Previous session restored.', { exact: true })).toHaveCount(0);
-  await expectInputs(page, gasValues);
+  await expect(page.getByRole('button', { name: 'Manual Entry', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await expect(input(page, 'Minimum', 'Flow rate')).toHaveValue('');
   await expectSavedResult(page, gasTag, gasCvs);
+  await page.getByRole('button', { name: 'Import Excel', exact: true }).click();
   await selectSheet(page, liquidTag);
   await expectInputs(page, liquidValues);
   await calculate(page);
@@ -219,9 +221,7 @@ async function expectCv(output, expected) {
 async function expectSavedResult(page, name, cvs) {
   const result = card(page, name);
   await expect(result).toBeVisible();
-  if (!(await result.evaluate((element) => element.open))) {
-    await result.locator('summary').click();
-  }
+  await expect(result.locator('summary')).toHaveCount(0);
   for (const [index, condition] of conditions.entries()) {
     await expectCv(result.getByLabel(`${condition} Cv result`, { exact: true }), cvs[index]);
   }
@@ -433,9 +433,9 @@ test('exports calculated worksheets with every operating Cv and the governing re
   expect(wordXml).not.toMatch(/<w:br\b[^>]*w:type="page"/);
   expect(await page.evaluate(() => window.__printCalls)).toBe(0);
   await expect(page.locator('.pdf-print-portal')).toHaveCount(0);
-  await card(page, gasTag).locator('summary').click();
+  await card(page, gasTag).locator('.excel-result-header').click();
   await expect(card(page, gasTag).getByRole('button', { name: 'Load Into Calculator', exact: true })).not.toBeVisible();
-  await expect(card(page, gasTag).locator('summary')).toContainText(/Maximum Cv/i);
+  await expect(card(page, gasTag).locator('.excel-result-header')).toContainText(/Maximum Cv/i);
 });
 
 test('converts detected gas flow, pressure and Celsius units without treating them as calculator units', async ({ page }) => {
@@ -499,13 +499,13 @@ test('offers existing results and restores saved edits for deliberate recalculat
   await calculate(page);
   const editedCvs = [13.416407864998739, liquidCvs[1], liquidCvs[2]];
   await expectSavedResult(page, liquidTag, editedCvs);
-  await card(page, liquidTag).locator('summary').click();
+  await card(page, liquidTag).locator('.excel-result-header').click();
   await selectSheet(page, liquidTag);
   const warning = page.getByRole('dialog');
   await expect(warning).toContainText(`${liquidTag} has already been calculated`);
   await warning.getByRole('button', { name: 'View Existing Result', exact: true }).click();
   await expect(warning).toHaveCount(0);
-  await expect(card(page, liquidTag)).toHaveAttribute('open', '');
+  await expect(card(page, liquidTag).locator('.excel-result-card-body')).toBeVisible();
   await selectSheet(page, liquidTag);
   await warning.getByRole('button', { name: 'Cancel', exact: true }).click();
   await expectSavedResult(page, liquidTag, editedCvs);

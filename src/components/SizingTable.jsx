@@ -38,7 +38,6 @@ export default function SizingTable({ service, data, errors, results, temperatur
           </tbody>
         </table>
       </div>
-      {service === 'gas' && <p className="temperature-note" id="temperature-note"><Icon name="info" size={15} />Temperature is recorded for reference; it is not used in this simplified gas equation.</p>}
     </>
   );
 }

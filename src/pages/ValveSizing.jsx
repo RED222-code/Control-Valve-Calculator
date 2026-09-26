@@ -11,7 +11,6 @@ import { CONDITIONS, INPUT_ROWS, createSession } from '../data/serviceConfig.js'
 import { calculateLiquidCv } from '../calculators/liquidCalculator.js';
 import { calculateGasCv } from '../calculators/gasCalculator.js';
 import { validateOperatingConditions } from '../utils/validation.js';
-import { formatCv } from '../utils/formatting.js';
 import { convertTemperatureInput } from '../utils/temperature.js';
 import useWorkbookImport from '../hooks/useWorkbookImport.js';
 import WorkbookPanel from '../components/WorkbookPanel.jsx';
@@ -30,19 +29,18 @@ export default function ValveSizing() {
 }
 
 function SizingWorkspace({ restored, onClear }) {
-  const [service, setService] = useState(restored?.service ?? 'liquid');
+  const [service, setService] = useState(restored?.manualService ?? 'liquid');
   const [sessions, setSessions] = useState(() => restored?.sessions ?? { liquid: createSession(), gas: createSession() });
-  const [inputSource, setInputSource] = useState(restored?.inputSource ?? 'manual');
+  const [inputSource, setInputSource] = useState('manual');
   const manualService = useRef(restored?.manualService ?? 'liquid');
   const workbook = useWorkbookImport(setService, restored?.workbook);
   const [storageWarning, setStorageWarning] = useState(false);
   const [clearOpen, setClearOpen] = useState(false);
-  const [expandedResults, setExpandedResults] = useState(restored?.expandedResults ?? {});
   const clearDialog = useRef(null);
   const toolbarRef = useRef(null);
   const cleared = useRef(false);
   const hasWorkspace = useRef(Boolean(restored));
-  const snapshot = { service, sessions, inputSource, expandedResults, manualService: manualService.current, workbook: workbook.persistenceState };
+  const snapshot = { service, sessions, inputSource, manualService: manualService.current, workbook: workbook.persistenceState };
   const latest = useRef(snapshot);
   latest.current = snapshot;
 
@@ -65,7 +63,7 @@ function SizingWorkspace({ restored, onClear }) {
       window.removeEventListener('pagehide', flush);
       document.removeEventListener('visibilitychange', hidden);
     };
-  }, [service, sessions, inputSource, expandedResults, workbook.workbookSession, workbook.persistenceState.currentSheetName, workbook.persistenceState.pendingImport]);
+  }, [service, sessions, inputSource, workbook.workbookSession, workbook.persistenceState.currentSheetName, workbook.persistenceState.pendingImport]);
 
   useEffect(() => {
     if (clearOpen) clearDialog.current?.showModal();
@@ -170,8 +168,7 @@ function SizingWorkspace({ restored, onClear }) {
       focusFirstError(errors);
       return;
     }
-    const maximum = Math.max(...CONDITIONS.map(({ key }) => results[key].cv));
-    updateSession((previous) => ({ ...previous, errors: {}, results, submitted: true, feedback: { kind: 'success', text: `Calculation complete. Maximum Cv: ${formatCv(maximum)}.` } }));
+    updateSession((previous) => ({ ...previous, errors: {}, results, submitted: true, feedback: null }));
     workbook.saveCalculation(results);
     if (workbook.activeImport) {
       const sheetName = workbook.activeImport.sheetName;
@@ -244,13 +241,12 @@ function SizingWorkspace({ restored, onClear }) {
       <div id={`${service}-calculator`} role="tabpanel" aria-labelledby={`${service}-tab`} className="calculator-layout">
         <div className="calculator-main">
           <form className="panel operating-panel" id="operating-conditions" onSubmit={calculate} noValidate aria-label={`${label} service calculator`} hidden={Boolean(workbook.importData && !workbook.importData.service)}>
-            <div className={`operating-heading ${workbook.activeImport ? '' : 'operating-heading-standalone'}`}><div className="section-heading"><div><h2>Operating conditions</h2></div></div></div>
-            {workbook.activeImport && <div className="operating-intro"><p>Review imported {service} values from {workbook.activeImport.sheetName}. Correct any missing inputs before calculating.</p></div>}
+            <div className="operating-heading operating-heading-standalone"><div className="section-heading"><div><h2>Operating conditions</h2></div></div></div>
             <SizingTable service={service} data={session.data} errors={session.errors} results={session.results} temperatureUnit={session.temperatureUnit} onTemperatureUnitChange={changeTemperatureUnit} units={session.units} onUnitChange={changeUnits} onChange={handleChange} />
             <div className="form-actions"><div className="action-buttons"><button type="submit" className="button button-primary"><Icon name="calculator" size={18} />Calculate Cv<Icon name="arrow" size={16} /></button><button type="button" className="button button-reset" onClick={reset}><Icon name="reset" size={16} />Reset</button></div>{session.feedback && <div className={`form-feedback ${session.feedback.kind}`} role="status" aria-live="polite" aria-atomic="true"><Icon name={session.feedback.kind === 'success' ? 'check' : session.feedback.kind === 'error' ? 'alert' : 'info'} size={16} /><span>{session.feedback.text}</span></div>}</div>
           </form>
           {!workbook.activeImport && <ResultsPanel results={session.results} service={service} />}
-          {workbook.workbookSession && <ResultsGroup session={workbook.workbookSession} onSelectAnotherSheet={selectAnotherSheet} busy={workbook.busy} expandedResults={expandedResults} onToggleResult={(name, open) => setExpandedResults(previous => previous[name] === open ? previous : { ...previous, [name]: open })} onLoadCalculation={(calculation) => {
+          {workbook.workbookSession && <ResultsGroup session={workbook.workbookSession} onSelectAnotherSheet={selectAnotherSheet} busy={workbook.busy} onLoadCalculation={(calculation) => {
             setInputSource('excel');
             workbook.loadCalculation(calculation);
             requestAnimationFrame(() => document.getElementById('operating-conditions')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));

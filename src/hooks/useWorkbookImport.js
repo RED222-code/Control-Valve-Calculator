@@ -8,8 +8,8 @@ const copyInputs = (data) => Object.fromEntries(Object.entries(data).map(([key, 
 // Keep only normalized parsed data, editable drafts, and saved results in state.
 export default function useWorkbookImport(onServiceChange, restored = null) {
   const [workbookSession, setWorkbookSession] = useState(restored?.workbookSession ?? null);
-  const [currentSheetName, setCurrentSheetName] = useState(restored?.currentSheetName ?? null);
-  const [pendingImport, setPendingImport] = useState(restored?.pendingImport ?? null);
+  const [currentSheetName, setCurrentSheetName] = useState(null);
+  const [pendingImport, setPendingImport] = useState(null);
   const [duplicate, setDuplicate] = useState(null);
   const [replacementFile, setReplacementFile] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -89,7 +89,10 @@ export default function useWorkbookImport(onServiceChange, restored = null) {
     if (!sheet?.relevant || reading.current) return;
     setError('');
     if (!serviceOverride && Object.hasOwn(workbookSession.drafts, sheetName)) {
-      activateDraft(workbookSession.drafts[sheetName]);
+      const draft = workbookSession.drafts[sheetName];
+      const feedback = draft.session.feedback;
+      activateDraft(feedback?.kind === 'info' && feedback.text.startsWith('Imported from ')
+        ? { ...draft, session: { ...draft.session, feedback: null } } : draft);
       return;
     }
     try {
@@ -105,7 +108,7 @@ export default function useWorkbookImport(onServiceChange, restored = null) {
       activateDraft({ sheetName, service: imported.service, importData: imported, allowRecalculate: false,
         session: { ...createSession(), data: copyInputs(imported.data), temperatureUnit: imported.temperatureUnit,
           errors: imported.errors ?? checked.errors, submitted: true,
-          feedback: { kind: 'info', text: `Imported from ${sheetName}. Review values and units before calculating.` } },
+          feedback: null },
       });
     } catch (failure) {
       setError(failure.message || `Values could not be read from ${sheetName}.`);
@@ -158,8 +161,7 @@ export default function useWorkbookImport(onServiceChange, restored = null) {
     requestAnimationFrame(() => {
       const card = document.getElementById(`workbook-result-${encodeURIComponent(sheetName)}`);
       if (card) {
-        card.open = true;
-        card.querySelector('summary')?.focus();
+        card.focus({ preventScroll: true });
         card.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
     });

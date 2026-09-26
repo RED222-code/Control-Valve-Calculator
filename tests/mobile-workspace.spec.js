@@ -198,7 +198,7 @@ test('mobile workbook returns to worksheet selection after calculating', async (
   const resultGroup = page.getByRole('region', { name: 'Workbook calculation results', exact: true });
   const resultCard = resultGroup.locator('details');
   await expect(resultCard).toHaveCount(1);
-  await expect(resultCard).toHaveAttribute('open', '');
+  await expect(resultCard.locator('.excel-result-card-body')).toBeVisible();
   for (const [index, condition] of conditions.entries()) {
     const text = await resultCard.getByLabel(`${condition} Cv result`, { exact: true }).innerText();
     expect(Number(text.replaceAll(',', ''))).toBeCloseTo(expectedCvs.gas[index], 2);

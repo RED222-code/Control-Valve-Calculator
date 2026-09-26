@@ -5,7 +5,6 @@ import './excel.css';
 
 export default function WorkbookPanel({ session, busy, error, onFileSelected, onSelectSheet, selectedSheetName }) {
   const headingId = useId();
-  const relevantCount = session?.sheets.filter(sheet => sheet.relevant).length ?? 0;
 
   return (
     <section className="panel workbook-panel" aria-labelledby={headingId} aria-busy={busy || undefined}>
@@ -15,7 +14,7 @@ export default function WorkbookPanel({ session, busy, error, onFileSelected, on
         {error && <p className="excel-feedback excel-error" role="alert">{error}</p>}
         {session && (
           <div className="excel-workbook-content">
-            <div className="excel-workbook-meta"><p className="excel-file-name">{session.fileName}</p><p>{relevantCount} control-valve {relevantCount === 1 ? 'sheet' : 'sheets'} detected · {session.sheets.length} {session.sheets.length === 1 ? 'worksheet' : 'worksheets'} total</p></div>
+            <div className="excel-workbook-meta"><p className="excel-file-name">{session.fileName}</p></div>
             <SheetSelector sheets={session.sheets} selectedSheetName={selectedSheetName} onSelectSheet={onSelectSheet} busy={busy} />
           </div>
         )}

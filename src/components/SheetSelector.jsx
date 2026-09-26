@@ -13,12 +13,6 @@ export default function SheetSelector({ sheets, selectedSheetName, onSelectSheet
   const selected = sheets.find(sheet => sheet.name === selectedSheetName);
   const enabledIndices = sheets.flatMap((sheet, index) => sheet.relevant ? [index] : []);
   const expanded = open && !busy;
-  const description = selected ? [
-    selected.valveTag && selected.valveTag !== selected.name ? `Tag: ${selected.valveTag}` : null,
-    selected.description,
-    selected.fluidState ? `Fluid state: ${selected.fluidState}` : null,
-    selected.usefulProcessData ? 'Process data detected.' : 'Review required: process data may be incomplete.',
-  ].filter(Boolean).join(' · ') : '';
 
   useEffect(() => {
     if (!expanded) return;
@@ -87,7 +81,7 @@ export default function SheetSelector({ sheets, selectedSheetName, onSelectSheet
               <button ref={triggerRef} type="button" id={selectId} className="excel-sheet-dropdown" role="combobox"
                 aria-labelledby={`${selectId}-label`} aria-haspopup="listbox" aria-expanded={expanded}
                 aria-controls={`${selectId}-menu`} aria-activedescendant={expanded && activeIndex >= 0 ? `${selectId}-option-${activeIndex}` : undefined}
-                aria-describedby={description ? `${selectId}-description` : undefined} disabled={busy}
+                disabled={busy}
                 onClick={() => expanded ? setOpen(false) : showMenu()} onKeyDown={handleKeyDown}>
                 <span className="excel-sheet-select-icon"><Icon name={selected?.service || 'book'} size={19} /></span>
                 <span className="excel-sheet-trigger-name">{selected?.name ?? 'Select a worksheet'}</span>
@@ -119,7 +113,6 @@ export default function SheetSelector({ sheets, selectedSheetName, onSelectSheet
             </div>
             {selected?.status === 'calculated' && <button type="button" className="button button-reset" disabled={busy} onClick={() => onSelectSheet(selected.name)}>Open worksheet</button>}
           </div>
-          {description && <p className="excel-selected-description" id={`${selectId}-description`}><Icon name={selected?.status === 'calculated' ? 'check' : 'info'} size={15} /><span>{description}</span></p>}
         </>
       )}
       {sheets.length > 0 && !sheets.some(sheet => sheet.relevant) && <p className="excel-feedback">No relevant control-valve worksheets were detected. You can continue with manual entry.</p>}

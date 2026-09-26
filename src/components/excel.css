@@ -95,12 +95,7 @@
 .excel-empty { background: var(--soft); padding: 16px 18px; margin-top: 17px; border: 1px dashed #d8e1d1; border-radius: 6px; color: var(--muted); font-size: 12px; line-height: 1.7; }
 .excel-result-stack { display: grid; gap: 12px; margin-top: 19px; }
 .excel-result-card { border: 1px solid #dce5d7; border-radius: 7px; scroll-margin-top: 24px; }
-.excel-result-card summary { display: flex; align-items: center; gap: 10px; padding: 17px 16px; cursor: pointer; list-style: none; background: #f8faf5; border-radius: 7px; }
-.excel-result-card summary::-webkit-details-marker { display: none; }
-.excel-result-card summary:hover { background: #f0f5e9; }
-.excel-result-card summary:focus-visible { outline: 3px solid #4c8c72; outline-offset: 3px; }
-.excel-result-chevron { color: var(--green); }
-.excel-result-card[open] .excel-result-chevron { transform: rotate(90deg); }
+.excel-result-card .excel-result-header { display: flex; align-items: center; gap: 10px; padding: 17px 16px; background: #f8faf5; border-radius: 7px; }
 .excel-result-name { font-size: 13px; font-weight: 650; min-width: 0; overflow-wrap: anywhere; }
 .excel-result-preview { margin-left: auto; text-align: right; font-size: 11px; color: var(--muted); flex-shrink: 0; }
 .excel-result-preview strong { font-family: var(--mono); font-size: 13px; color: var(--green); font-weight: 550; }
@@ -131,7 +126,7 @@
   .input-source-controls, .workbook-panel, .excel-import-summary { margin-bottom: 18px; }
   .excel-section-heading { padding: 18px 17px; }
   .excel-panel-body { padding: 18px 17px 20px; }
-  .excel-result-card summary { flex-wrap: wrap; gap: 9px; padding: 14px; }
+  .excel-result-card .excel-result-header { flex-wrap: wrap; gap: 9px; padding: 14px; }
   .excel-result-name { flex: 1; }
   .excel-result-preview { width: 100%; padding-left: 27px; text-align: left; margin-left: 0; }
   .excel-import-fields { grid-template-columns: 1fr; }
@@ -179,8 +174,8 @@
 .excel-results-count { font-size: 12px; line-height: 1.6; }
 .excel-result-stack { gap: 14px; margin-top: 24px; }
 .excel-result-card { border-radius: 10px; }
-.excel-result-card summary { min-height: 62px; border-radius: 10px; background: #f7faf8; }
-.excel-result-card[open] summary { border-radius: 10px 10px 0 0; background: #edf5ef; }
+.excel-result-card .excel-result-header { min-height: 62px; border-radius: 10px; background: #f7faf8; }
+.excel-result-card .excel-result-header { border-radius: 10px 10px 0 0; background: #edf5ef; }
 .excel-result-name { font-size: 14px; }
 .excel-card-condition-results { border-radius: 9px; background: #fafcfb; }
 .excel-card-condition-results output { font-variant-numeric: tabular-nums; }
@@ -196,7 +191,7 @@
   .excel-sheet-selector { margin-top: 14px; }
   .excel-sheet-dropdown { min-height: 46px; padding-block: 10px; }
   .excel-result-stack { margin-top: 16px; gap: 10px; }
-  .excel-result-card summary { min-height: 48px; padding: 12px 14px; }
+  .excel-result-card .excel-result-header { min-height: 48px; padding: 12px 14px; }
   .excel-result-card-body { padding: 14px; }
   .excel-card-service { margin-bottom: 10px; }
   .excel-card-condition-results > div { padding: 10px 14px; }
@@ -230,7 +225,7 @@
   .excel-action-row .button { min-height: 48px; }
   .excel-result-card-body { padding: 14px; }
   .excel-card-condition-results { grid-template-columns: 1fr; }
-  .excel-card-condition-results > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px; border-right: 0; border-bottom: 1px solid #e2e8da; }
+  .excel-card-condition-results > div { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 12px; padding: 12px; border-right: 0; border-bottom: 1px solid #e2e8da; }
   .excel-card-condition-results > div:last-child { border-bottom: 0; }
   .excel-card-condition-results output { margin: 0; font-size: 21px; }
   .excel-card-condition-results span { font-size: 12px; }

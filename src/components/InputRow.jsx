@@ -24,7 +24,7 @@ export default function InputRow({ row, service, data, errors, temperatureUnit, 
         return (
           <td key={key} className={`input-cell ${key === 'normal' ? 'normal-cell' : ''}`}>
             <span className="condition-input-label" aria-hidden="true">{label}</span>
-            <input id={id} name={`${key}.${row.key}`} type="text" inputMode="decimal" autoComplete="off" spellCheck="false" maxLength={64} required value={data[key][row.key]} placeholder={row.key === 'T' && temperatureUnit === 'K' ? '293.15' : row.placeholder} aria-label={`${label} ${displayLabel}`} aria-invalid={Boolean(error)} aria-describedby={[`${service}-${row.key}-unit`, error ? `${id}-error` : null, row.key === 'T' ? 'temperature-note' : null].filter(Boolean).join(' ')} onChange={(event) => onChange(key, row.key, event.target.value)} />
+            <input id={id} name={`${key}.${row.key}`} type="text" inputMode="decimal" autoComplete="off" spellCheck="false" maxLength={64} required value={data[key][row.key]} placeholder={row.key === 'T' && temperatureUnit === 'K' ? '293.15' : row.placeholder} aria-label={`${label} ${displayLabel}`} aria-invalid={Boolean(error)} aria-describedby={[`${service}-${row.key}-unit`, error ? `${id}-error` : null].filter(Boolean).join(' ')} onChange={(event) => onChange(key, row.key, event.target.value)} />
             <ErrorMessage id={`${id}-error`} message={error} />
           </td>
         );
