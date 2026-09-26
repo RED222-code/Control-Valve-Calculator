@@ -1,4 +1,4 @@
-import { CONDITIONS } from '../data/serviceConfig.js';
+import { CONDITIONS, INPUT_ROWS } from '../data/serviceConfig.js';
 import { formatCv } from './formatting.js';
 
 const SPREADSHEET_EXTENSION = /\.(xlsx|xlsm|xlsb|xls)$/i;
@@ -26,7 +26,7 @@ export function sanitizeFilename(value, fallback = 'control-valve-cv-result') {
   return cleaned || fallback;
 }
 
-export function createResultExportModel({ service, results, workbookName = '', sheetName = '' }) {
+export function createResultExportModel({ service, results, inputs, units = {}, temperatureUnit = 'F', workbookName = '', sheetName = '' }) {
   if (!SERVICES.has(service)) {
     throw new Error('The result service must be either liquid or gas.');
   }
@@ -54,6 +54,15 @@ export function createResultExportModel({ service, results, workbookName = '', s
     sourceLabel: imported ? 'Excel worksheet' : 'Manual entry',
     workbookName: cleanWorkbookName,
     sheetName: cleanSheetName,
+    operatingConditions: inputs ? INPUT_ROWS.filter(row => !row.gasOnly || service === 'gas').map(row => ({
+      label: service === 'gas' ? row.gasLabel || row.label : row.label,
+      unit: row.key === 'Q' ? units.flow || (service === 'gas' ? 'SCFM' : 'gpm')
+        : ['P1', 'P2', 'deltaP'].includes(row.key) ? units.pressure || 'psi'
+          : row.key === 'T' ? temperatureUnit : '-',
+      values: CONDITIONS.map(({ key }) => row.key === 'deltaP'
+        ? String(Number((Number(inputs[key]?.P1) - Number(inputs[key]?.P2)).toPrecision(10)))
+        : String(inputs[key]?.[row.key] ?? '')),
+    })) : [],
     values: values.map(({ key, label, numericValue }) => ({
       key,
       label: `${label} Cv`,
@@ -90,6 +99,9 @@ export function createWorkbookExportModel({ workbookName = '', calculations }) {
     return createResultExportModel({
       service: calculation.service,
       results: calculation.results,
+      inputs: calculation.inputs,
+      units: calculation.units,
+      temperatureUnit: calculation.temperatureUnit,
       workbookName: cleanWorkbookName,
       sheetName,
     });

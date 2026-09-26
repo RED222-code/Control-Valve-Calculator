@@ -145,31 +145,37 @@ test('downloads the result section directly as PDF and Word without printing the
     window.print = () => { window.__printCalls += 1; };
   });
 
+  await page.getByRole('button', { name: 'Download', exact: true }).click();
   const [pdfDownload] = await Promise.all([
     page.waitForEvent('download'),
-    page.getByRole('button', { name: 'Download PDF', exact: true }).click(),
+    page.getByRole('button', { name: 'PDF', exact: true }).click(),
   ]);
   expect(pdfDownload.suggestedFilename()).toBe('control-valve-liquid-cv-result.pdf');
   const pdf = await downloadBytes(pdfDownload);
   expect(pdf.subarray(0, 5).toString()).toBe('%PDF-');
-  expect(pdf.toString('latin1')).toContain('Maximum calculated Cv');
+  expect(pdf.toString('latin1')).toContain('Maximum Cv');
+  expect(pdf.toString('latin1')).not.toContain('WORKBOOK NAME');
   expect(pdf.toString('latin1')).toContain('23.717');
-  expect(pdf.toString('latin1')).not.toContain('Flow rate');
+  expect(pdf.toString('latin1')).toContain('Flow rate');
+  expect(pdf.toString('latin1')).toContain('Upstream pressure');
   expect(pdf.subarray(-1_024).toString('latin1')).toContain('%%EOF');
 
+  await page.getByRole('button', { name: 'Download', exact: true }).click();
   const [wordDownload] = await Promise.all([
     page.waitForEvent('download'),
-    page.getByRole('button', { name: 'Download Word', exact: true }).click(),
+    page.getByRole('button', { name: 'Word', exact: true }).click(),
   ]);
   expect(wordDownload.suggestedFilename()).toBe('control-valve-liquid-cv-result.docx');
   const word = await downloadBytes(wordDownload);
   expect(word.subarray(0, 4).toString('hex')).toBe('504b0304');
   const wordXml = wordDocumentXml(word);
-  expect(wordXml).toContain('Control Valve Sizing');
-  expect(wordXml).toContain('Calculated flow coefficient summary');
-  expect(wordXml).toContain('Manual entry');
+  expect(wordXml).toContain('Maximum Cv');
+  expect(wordXml).not.toContain('Workbook calculation summary');
+  expect(wordXml).toContain('Manual calculation');
   expect(wordXml).toContain('23.717');
-  expect(wordXml).not.toContain('Flow rate');
+  expect(wordXml).toContain('Flow rate');
+  expect(wordXml).toContain('Upstream pressure');
+  expect(wordXml).toContain('gpm');
 
   expect(await page.evaluate(() => window.__printCalls)).toBe(0);
   await expect(page.locator('.pdf-print-portal')).toHaveCount(0);

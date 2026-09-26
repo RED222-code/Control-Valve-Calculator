@@ -23,402 +23,98 @@ function triggerDownload(blob, filename) {
   window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
 }
 
-function metadataRows(model) {
+const operatingHeadings = ['Variable', 'Unit', 'Minimum', 'Normal', 'Maximum'];
+const operatingRows = model => model.operatingConditions.map(({ label, unit, values }) => [label, unit, ...values]);
+
+function appendOperatingPdf(doc, autoTable, models) {
+  let first = true;
+  for (const model of models) {
+    if (!first) doc.addPage('a4', 'portrait');
+    first = false;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(16);
+    doc.setTextColor(...COLORS.navy);
+    doc.text('Worksheet calculation', 18, 24);
+    doc.setFontSize(10);
+    const subtitle = doc.splitTextToSize(`${model.sheetName || 'Manual entry'} | ${model.serviceLabel}`, 174);
+    doc.text(subtitle, 18, 34);
+    autoTable(doc, {
+      startY: 40 + (subtitle.length - 1) * 5,
+      margin: { left: 18, right: 18 },
+      head: [['Minimum Cv', 'Normal Cv', 'Maximum Cv']],
+      body: [model.values.map(({ value }) => value)],
+      theme: 'grid',
+      styles: { halign: 'center', fontSize: 11, cellPadding: 4 },
+      headStyles: { fillColor: COLORS.teal },
+    });
+    const conditionsY = doc.lastAutoTable.finalY + 12;
+    doc.setFontSize(11);
+    doc.setTextColor(...COLORS.navy);
+    doc.text('Operating conditions used for this calculation', 18, conditionsY);
+    autoTable(doc, {
+      startY: conditionsY + 6,
+      margin: { top: 18, bottom: 24, left: 18, right: 18 },
+      head: [operatingHeadings], body: operatingRows(model), theme: 'grid',
+      styles: { fontSize: 9, cellPadding: 3, overflow: 'linebreak', halign: 'center' },
+      headStyles: { fillColor: COLORS.navy },
+      columnStyles: { 0: { cellWidth: 48, halign: 'left' }, 1: { cellWidth: 24 } },
+      alternateRowStyles: { fillColor: COLORS.soft },
+    });
+  }
+}
+
+async function operatingWordBlocks(model, index) {
+  const { Paragraph, Table, TableRow, TableCell, TextRun, WidthType, AlignmentType } = await import('docx');
+  const table = (headings, rows, widths) => new Table({
+    width: { size: 100, type: WidthType.PERCENTAGE }, columnWidths: widths,
+    rows: [headings, ...rows].map((row, rowIndex) => new TableRow({
+      tableHeader: rowIndex === 0, cantSplit: true,
+      children: row.map((text, column) => new TableCell({
+        margins: { top: 120, bottom: 120, left: 120, right: 120 },
+        shading: { fill: rowIndex === 0 ? '142637' : rowIndex % 2 ? 'F6F8FA' : 'FFFFFF' },
+        children: [new Paragraph({
+          alignment: column === 0 && headings.length > 3 ? AlignmentType.LEFT : AlignmentType.CENTER,
+          children: [new TextRun({ text: String(text), bold: rowIndex === 0, color: rowIndex === 0 ? 'FFFFFF' : '1F2D39', size: 18 })],
+        })],
+      })),
+    })),
+  });
   return [
-    ['Service', model.serviceLabel],
-    ['Source', model.sourceLabel],
-    ...(model.workbookName ? [['Workbook', model.workbookName]] : []),
-    ...(model.sheetName ? [['Worksheet', model.sheetName]] : []),
+    new Paragraph({ text: model.sheetName || 'Manual calculation', pageBreakBefore: index > 0, keepNext: true, spacing: { after: 160 } }),
+    new Paragraph({ text: `${model.serviceLabel} service`, keepNext: true, spacing: { after: 240 } }),
+    table(['Minimum Cv', 'Normal Cv', 'Maximum Cv'], [model.values.map(({ value }) => value)], [3333, 3333, 3334]),
+    new Paragraph({ text: 'Operating conditions', keepNext: true, spacing: { before: 240, after: 160 } }),
+    table(operatingHeadings, operatingRows(model), [3000, 1300, 1900, 1900, 1900]),
   ];
 }
 
-function renderPdfResultPage(doc, autoTable, model, pageNumber, pageCount) {
-  const pageWidth = doc.internal.pageSize.getWidth();
-  const pageHeight = doc.internal.pageSize.getHeight();
-  const margin = 18;
-
-  doc.setFillColor(...COLORS.navy);
-  doc.rect(0, 0, pageWidth, 42, 'F');
-  doc.setFillColor(...COLORS.teal);
-  doc.rect(0, 0, 5, 42, 'F');
-  doc.setTextColor(...COLORS.white);
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(7.5);
-  doc.text('ENGINEERING CALCULATION REPORT', margin, 12);
-  doc.setFontSize(19);
-  doc.text('Control Valve Sizing', margin, 25);
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
-  doc.setTextColor(195, 210, 219);
-  doc.text('Calculated flow coefficient summary', margin, 33);
-
-  const badgeText = `${model.serviceLabel.toUpperCase()} SERVICE`;
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(7.5);
-  const badgeWidth = doc.getTextWidth(badgeText) + 10;
-  doc.setFillColor(...COLORS.teal);
-  doc.roundedRect(pageWidth - margin - badgeWidth, 16, badgeWidth, 10, 2, 2, 'F');
-  doc.setTextColor(...COLORS.white);
-  doc.text(badgeText, pageWidth - margin - (badgeWidth / 2), 22.5, { align: 'center' });
-
-  doc.setTextColor(...COLORS.ink);
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(10.5);
-  doc.text('Report details', margin, 55);
-  doc.setDrawColor(...COLORS.teal);
-  doc.setLineWidth(0.8);
-  doc.line(margin, 58.5, margin + 13, 58.5);
-  autoTable(doc, {
-    startY: 63,
-    margin: { left: margin, right: margin },
-    theme: 'plain',
-    body: metadataRows(model),
-    styles: {
-      font: 'helvetica',
-      fontSize: 9,
-      textColor: COLORS.ink,
-      cellPadding: { top: 3.2, right: 4, bottom: 3.2, left: 4 },
-      overflow: 'linebreak',
-    },
-    columnStyles: {
-      0: { cellWidth: 35, fontStyle: 'bold', textColor: COLORS.muted },
-      1: { cellWidth: 'auto', fontStyle: 'bold' },
-    },
-    alternateRowStyles: { fillColor: COLORS.soft },
-  });
-
-  const resultHeadingY = doc.lastAutoTable.finalY + 13;
-  doc.setTextColor(...COLORS.ink);
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(10.5);
-  doc.text('Operating condition results', margin, resultHeadingY);
-  doc.setDrawColor(...COLORS.teal);
-  doc.setLineWidth(0.8);
-  doc.line(margin, resultHeadingY + 3.5, margin + 13, resultHeadingY + 3.5);
-  autoTable(doc, {
-    startY: resultHeadingY + 8,
-    margin: { left: margin, right: margin },
-    theme: 'grid',
-    head: [['Operating condition', 'Calculated Cv']],
-    body: model.values.map(({ label, value }) => [label.replace(/ Cv$/, ''), value]),
-    headStyles: {
-      fillColor: COLORS.navy,
-      textColor: COLORS.white,
-      fontStyle: 'bold',
-      lineColor: COLORS.navy,
-      cellPadding: 4,
-    },
-    styles: {
-      font: 'helvetica',
-      fontSize: 10,
-      textColor: COLORS.ink,
-      lineColor: COLORS.line,
-      lineWidth: 0.25,
-      cellPadding: 4.2,
-    },
-    alternateRowStyles: { fillColor: COLORS.soft },
-    columnStyles: {
-      0: { cellWidth: 'auto' },
-      1: { cellWidth: 48, halign: 'right', fontStyle: 'bold' },
-    },
-  });
-
-  const maximumY = doc.lastAutoTable.finalY + 10;
-  doc.setFillColor(...COLORS.tealSoft);
-  doc.roundedRect(margin, maximumY, pageWidth - (margin * 2), 31, 2.5, 2.5, 'F');
-  doc.setFillColor(...COLORS.teal);
-  doc.roundedRect(margin, maximumY, 4, 31, 2, 2, 'F');
-  doc.rect(margin + 2, maximumY, 2, 31, 'F');
-  doc.setTextColor(...COLORS.teal);
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(7.5);
-  doc.text('SIZING REFERENCE', margin + 10, maximumY + 8.5);
-  doc.setTextColor(...COLORS.navy);
-  doc.setFontSize(11.5);
-  doc.text('Maximum calculated Cv', margin + 10, maximumY + 17);
-  doc.setFont('helvetica', 'normal');
-  doc.setTextColor(...COLORS.muted);
-  doc.setFontSize(8.5);
-  doc.text(model.governingText, margin + 10, maximumY + 24.5);
-  doc.setTextColor(...COLORS.navy);
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(22);
-  doc.text(model.maximumValue, pageWidth - margin - 9, maximumY + 19, { align: 'right' });
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
-  doc.setTextColor(...COLORS.teal);
-  doc.text('Cv', pageWidth - margin - 9, maximumY + 26, { align: 'right' });
-
-  const footerLineY = pageHeight - 18;
-  doc.setDrawColor(...COLORS.line);
-  doc.line(margin, footerLineY, pageWidth - margin, footerLineY);
-  doc.setTextColor(...COLORS.muted);
-  doc.setFontSize(7.5);
-  doc.text('CONTROL VALVE SIZING  /  CALCULATION SUMMARY', margin, pageHeight - 10);
-  doc.text(`${String(pageNumber).padStart(2, '0')} / ${String(pageCount).padStart(2, '0')}`, pageWidth - margin, pageHeight - 10, { align: 'right' });
-}
-
-async function createPdfDownload(models, { title, subject, filename }) {
-  const [{ jsPDF }, autoTableModule] = await Promise.all([
-    import('jspdf'),
-    import('jspdf-autotable'),
-  ]);
-  const autoTable = autoTableModule.autoTable ?? autoTableModule.default;
+async function createPdfDownload(models, { filename }) {
+  const [{ jsPDF }, tableModule] = await Promise.all([import('jspdf'), import('jspdf-autotable')]);
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-
-  doc.setProperties({
-    title,
-    subject,
-    author: 'Control Valve Sizing Calculator',
-    creator: 'Control Valve Sizing Calculator',
-  });
-
-  models.forEach((model, index) => {
-    if (index > 0) doc.addPage('a4', 'portrait');
-    renderPdfResultPage(doc, autoTable, model, index + 1, models.length);
-  });
-
+  appendOperatingPdf(doc, tableModule.autoTable ?? tableModule.default, models);
+  const total = doc.getNumberOfPages();
+  for (let page = 1; page <= total; page += 1) {
+    doc.setPage(page);
+    doc.setFontSize(8);
+    doc.setTextColor(...COLORS.muted);
+    doc.text(`${page} / ${total}`, 192, 287, { align: 'right' });
+  }
   triggerDownload(doc.output('blob'), `${filename}.pdf`);
 }
 
 export async function downloadResultPdf(payload) {
   const model = createResultExportModel(payload);
-  return createPdfDownload([model], {
-    title: model.title,
-    subject: `${model.serviceLabel} control valve Cv calculation results`,
-    filename: model.filename,
-  });
+  return createPdfDownload([model], model);
 }
 
 export async function downloadWorkbookPdf(payload) {
-  const workbook = createWorkbookExportModel(payload);
-  const [{ jsPDF }, autoTableModule] = await Promise.all([
-    import('jspdf'),
-    import('jspdf-autotable'),
-  ]);
-  const autoTable = autoTableModule.autoTable ?? autoTableModule.default;
-  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-  const pageWidth = doc.internal.pageSize.getWidth();
-  const pageHeight = doc.internal.pageSize.getHeight();
-  const margin = 18;
-
-  doc.setProperties({
-    title: workbook.title,
-    subject: `${workbook.sheets.length} calculated worksheet Cv results from ${workbook.workbookName}`,
-    author: 'Control Valve Sizing Calculator',
-    creator: 'Control Valve Sizing Calculator',
-  });
-
-  doc.setFillColor(...COLORS.navy);
-  doc.rect(0, 0, pageWidth, 42, 'F');
-  doc.setFillColor(...COLORS.teal);
-  doc.rect(0, 0, 5, 42, 'F');
-  doc.setTextColor(...COLORS.white);
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(7.5);
-  doc.text('ENGINEERING CALCULATION REPORT', margin, 12);
-  doc.setFontSize(19);
-  doc.text('Control Valve Sizing', margin, 25);
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
-  doc.setTextColor(195, 210, 219);
-  doc.text('Workbook calculation summary', margin, 33);
-
-  const countLabel = `${workbook.sheets.length} ${workbook.sheets.length === 1 ? 'VALVE' : 'VALVES'}`;
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(7.5);
-  const badgeWidth = doc.getTextWidth(countLabel) + 10;
-  doc.setFillColor(...COLORS.teal);
-  doc.roundedRect(pageWidth - margin - badgeWidth, 16, badgeWidth, 10, 2, 2, 'F');
-  doc.setTextColor(...COLORS.white);
-  doc.text(countLabel, pageWidth - margin - (badgeWidth / 2), 22.5, { align: 'center' });
-
-  doc.setTextColor(...COLORS.muted);
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(7.5);
-  doc.text('SOURCE WORKBOOK', margin, 55);
-  doc.setTextColor(...COLORS.ink);
-  doc.setFontSize(14.5);
-  const workbookLines = doc.splitTextToSize(workbook.workbookName, pageWidth - (margin * 2));
-  doc.text(workbookLines, margin, 63);
-
-  const tableStartY = 63 + (workbookLines.length * 5.2) + 9;
-
-  autoTable(doc, {
-    startY: tableStartY,
-    margin: { top: 20, right: margin, bottom: 24, left: margin },
-    theme: 'grid',
-    head: [['Sheet name', 'Minimum Cv', 'Normal Cv', 'Maximum Cv']],
-    body: workbook.sheets.map(({ sheetName, values }) => [
-      sheetName,
-      ...values.map(({ value }) => value),
-    ]),
-    showHead: 'everyPage',
-    headStyles: {
-      fontSize: 9,
-      fillColor: COLORS.navy,
-      textColor: COLORS.white,
-      fontStyle: 'bold',
-      lineColor: COLORS.navy,
-      cellPadding: 3.4,
-    },
-    styles: {
-      font: 'helvetica',
-      fontSize: 10,
-      textColor: COLORS.ink,
-      lineColor: COLORS.line,
-      lineWidth: 0.25,
-      cellPadding: 3.4,
-      overflow: 'linebreak',
-      valign: 'middle',
-    },
-    alternateRowStyles: { fillColor: COLORS.soft },
-    columnStyles: {
-      0: { cellWidth: 75 },
-      1: { cellWidth: 33, halign: 'right' },
-      2: { cellWidth: 33, halign: 'right' },
-      3: { cellWidth: 33, halign: 'right' },
-    },
-  });
-
-  const pageCount = doc.getNumberOfPages();
-  for (let pageNumber = 1; pageNumber <= pageCount; pageNumber += 1) {
-    doc.setPage(pageNumber);
-    const footerLineY = pageHeight - 18;
-    doc.setDrawColor(...COLORS.line);
-    doc.line(margin, footerLineY, pageWidth - margin, footerLineY);
-    doc.setTextColor(...COLORS.muted);
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(7.5);
-    doc.text('CONTROL VALVE SIZING  /  WORKBOOK SUMMARY', margin, pageHeight - 10);
-    doc.text(`${String(pageNumber).padStart(2, '0')} / ${String(pageCount).padStart(2, '0')}`, pageWidth - margin, pageHeight - 10, { align: 'right' });
-  }
-
-  triggerDownload(doc.output('blob'), `${workbook.filename}.pdf`);
+  const model = createWorkbookExportModel(payload);
+  return createPdfDownload(model.sheets, model);
 }
 
 async function createWordDownload(models, { title, subject, filename }) {
-  const {
-    AlignmentType,
-    BorderStyle,
-    Document,
-    HeadingLevel,
-    Packer,
-    PageBreak,
-    PageOrientation,
-    Paragraph,
-    ShadingType,
-    Table,
-    TableCell,
-    TableRow,
-    TextRun,
-    VerticalAlign,
-    WidthType,
-  } = await import('docx');
-
-  const border = { color: 'DAE2E8', size: 4, style: BorderStyle.SINGLE };
-  const borders = { top: border, bottom: border, left: border, right: border };
-  const cell = (text, { bold = false, color = '1F2D39', fill, alignment = AlignmentType.LEFT } = {}) => new TableCell({
-    borders,
-    verticalAlign: VerticalAlign.CENTER,
-    margins: { top: 130, bottom: 130, left: 160, right: 160 },
-    ...(fill ? { shading: { type: ShadingType.CLEAR, color: 'auto', fill } } : {}),
-    children: [new Paragraph({
-      alignment,
-      spacing: { before: 0, after: 0 },
-      children: [new TextRun({ text: String(text), bold, color, size: 20, font: 'Arial' })],
-    })],
-  });
-
-  function resultBlocks(model, index) {
-    const metadataTable = new Table({
-      width: { size: 100, type: WidthType.PERCENTAGE },
-      columnWidths: [2600, 7400],
-      rows: metadataRows(model).map(([label, value]) => new TableRow({
-        children: [
-          cell(label, { bold: true, color: '5E6C78', fill: 'F6F8FA' }),
-          cell(value),
-        ],
-      })),
-    });
-
-    const resultsTable = new Table({
-      width: { size: 100, type: WidthType.PERCENTAGE },
-      columnWidths: [6500, 3500],
-      rows: [
-        new TableRow({
-          tableHeader: true,
-          children: [
-            cell('Operating condition', { bold: true, color: 'FFFFFF', fill: '142637' }),
-            cell('Calculated Cv', { bold: true, color: 'FFFFFF', fill: '142637', alignment: AlignmentType.RIGHT }),
-          ],
-        }),
-        ...model.values.map(({ label, value }) => new TableRow({
-          children: [
-            cell(label.replace(/ Cv$/, '')),
-            cell(value, { bold: true, alignment: AlignmentType.RIGHT }),
-          ],
-        })),
-      ],
-    });
-
-    return [
-      ...(index > 0 ? [new Paragraph({ children: [new PageBreak()] })] : []),
-      new Paragraph({
-        spacing: { after: 80 },
-        children: [new TextRun({ text: 'ENGINEERING CALCULATION REPORT', bold: true, color: '16706E', size: 17, font: 'Arial' })],
-      }),
-      new Paragraph({
-        style: 'Title',
-        children: [new TextRun({ text: 'Control Valve Sizing' })],
-      }),
-      new Paragraph({
-        spacing: { after: 300 },
-        children: [
-          new TextRun({ text: 'Calculated flow coefficient summary  ', color: '5E6C78', size: 20, font: 'Arial' }),
-          new TextRun({ text: `${model.serviceLabel.toUpperCase()} SERVICE`, bold: true, color: '16706E', size: 18, font: 'Arial' }),
-        ],
-      }),
-      new Paragraph({
-        heading: HeadingLevel.HEADING_1,
-        children: [new TextRun({ text: 'Report details' })],
-      }),
-      metadataTable,
-      new Paragraph({
-        heading: HeadingLevel.HEADING_1,
-        spacing: { before: 320 },
-        children: [new TextRun({ text: 'Operating condition results' })],
-      }),
-      resultsTable,
-      new Paragraph({
-        heading: HeadingLevel.HEADING_1,
-        spacing: { before: 320, after: 90 },
-        children: [new TextRun({ text: 'Sizing reference' })],
-      }),
-      new Paragraph({
-        spacing: { after: 70 },
-        children: [
-          new TextRun({ text: 'Maximum calculated Cv   ', bold: true, color: '142637', size: 23, font: 'Arial' }),
-          new TextRun({ text: model.maximumValue, bold: true, color: '16706E', size: 38, font: 'Arial' }),
-          new TextRun({ text: ' Cv', color: '16706E', size: 22, font: 'Arial' }),
-        ],
-      }),
-      new Paragraph({
-        spacing: { after: 300 },
-        children: [new TextRun({ text: model.governingText, color: '5E6C78', size: 20, font: 'Arial' })],
-      }),
-      new Paragraph({
-        border: { top: { color: 'DAE2E8', size: 4, style: BorderStyle.SINGLE, space: 8 } },
-        spacing: { before: 160 },
-        children: [new TextRun({
-          text: `CONTROL VALVE SIZING  /  CALCULATION SUMMARY  /  ${String(index + 1).padStart(2, '0')} OF ${String(models.length).padStart(2, '0')}`,
-          color: '5E6C78',
-          size: 16,
-          font: 'Arial',
-        })],
-      }),
-    ];
-  }
+  const operatingBlocks = await Promise.all(models.map(operatingWordBlocks));
+  const { Document, Packer, PageOrientation } = await import('docx');
 
   const document = new Document({
     creator: 'Control Valve Sizing Calculator',
@@ -460,7 +156,7 @@ async function createWordDownload(models, { title, subject, filename }) {
           margin: { top: 1080, right: 1080, bottom: 1080, left: 1080 },
         },
       },
-      children: models.flatMap(resultBlocks),
+      children: operatingBlocks.flat(),
     }],
   });
 
@@ -477,174 +173,6 @@ export async function downloadResultWord(payload) {
 }
 
 export async function downloadWorkbookWord(payload) {
-  const workbook = createWorkbookExportModel(payload);
-  const {
-    AlignmentType,
-    BorderStyle,
-    Document,
-    Packer,
-    PageOrientation,
-    Paragraph,
-    ShadingType,
-    Table,
-    TableCell,
-    TableRow,
-    TextRun,
-    VerticalAlign,
-    WidthType,
-  } = await import('docx');
-
-  const border = { color: 'DAE2E8', size: 4, style: BorderStyle.SINGLE };
-  const borders = { top: border, bottom: border, left: border, right: border };
-  const summaryCell = (text, {
-    bold = false,
-    color = '1F2D39',
-    fill,
-    alignment = AlignmentType.LEFT,
-  } = {}) => new TableCell({
-    borders,
-    verticalAlign: VerticalAlign.CENTER,
-    margins: { top: 150, bottom: 150, left: 180, right: 180 },
-    ...(fill ? { shading: { type: ShadingType.CLEAR, color: 'auto', fill } } : {}),
-    children: [new Paragraph({
-      alignment,
-      spacing: { before: 0, after: 0 },
-      children: [new TextRun({ text: String(text), bold, color, size: 20, font: 'Arial' })],
-    })],
-  });
-
-  const resultsTable = new Table({
-    width: { size: 100, type: WidthType.PERCENTAGE },
-    columnWidths: [4000, 2000, 2000, 2000],
-    rows: [
-      new TableRow({
-        tableHeader: true,
-        children: [
-          summaryCell('Sheet name', { bold: true, color: 'FFFFFF', fill: '142637' }),
-          summaryCell('Minimum Cv', {
-            bold: true,
-            color: 'FFFFFF',
-            fill: '142637',
-            alignment: AlignmentType.RIGHT,
-          }),
-          summaryCell('Normal Cv', {
-            bold: true,
-            color: 'FFFFFF',
-            fill: '142637',
-            alignment: AlignmentType.RIGHT,
-          }),
-          summaryCell('Maximum Cv', {
-            bold: true,
-            color: 'FFFFFF',
-            fill: '142637',
-            alignment: AlignmentType.RIGHT,
-          }),
-        ],
-      }),
-      ...workbook.sheets.map(({ sheetName, values }, index) => {
-        const fill = index % 2 === 1 ? 'F6F8FA' : undefined;
-        return new TableRow({
-          children: [
-            summaryCell(sheetName, { fill }),
-            ...values.map(({ value }) => summaryCell(value, { fill, alignment: AlignmentType.RIGHT })),
-          ],
-        });
-      }),
-    ],
-  });
-
-  const document = new Document({
-    creator: 'Control Valve Sizing Calculator',
-    title: workbook.title,
-    subject: `${workbook.sheets.length} calculated worksheet Cv results from ${workbook.workbookName}`,
-    description: 'Ordered workbook summary from the Control Valve Sizing Calculator',
-    styles: {
-      default: {
-        document: {
-          run: { font: 'Arial', size: 22, color: '1F2D39' },
-          paragraph: { spacing: { after: 140, line: 276 } },
-        },
-      },
-      paragraphStyles: [{
-        id: 'Title',
-        name: 'Title',
-        basedOn: 'Normal',
-        next: 'Normal',
-        quickFormat: true,
-        run: { font: 'Arial', size: 38, bold: true, color: '142637' },
-        paragraph: { spacing: { after: 320 } },
-      }],
-    },
-    sections: [{
-      properties: {
-        page: {
-          size: { width: 12240, height: 15840, orientation: PageOrientation.PORTRAIT },
-          margin: { top: 1080, right: 1080, bottom: 1080, left: 1080 },
-        },
-      },
-      children: [
-        new Paragraph({
-          spacing: { after: 100 },
-          children: [new TextRun({
-            text: 'ENGINEERING CALCULATION REPORT',
-            bold: true,
-            color: '16706E',
-            size: 18,
-            font: 'Arial',
-          })],
-        }),
-        new Paragraph({
-          style: 'Title',
-          children: [new TextRun({ text: 'Control Valve Sizing' })],
-        }),
-        new Paragraph({
-          spacing: { after: 300 },
-          children: [
-            new TextRun({ text: 'Workbook calculation summary  ', color: '5E6C78', size: 20, font: 'Arial' }),
-            new TextRun({
-              text: `${workbook.sheets.length} ${workbook.sheets.length === 1 ? 'VALVE' : 'VALVES'}`,
-              bold: true,
-              color: '16706E',
-              size: 18,
-              font: 'Arial',
-            }),
-          ],
-        }),
-        new Paragraph({
-          spacing: { after: 70 },
-          children: [new TextRun({
-            text: 'WORKBOOK NAME',
-            bold: true,
-            color: '5E6C78',
-            size: 17,
-            font: 'Arial',
-          })],
-        }),
-        new Paragraph({
-          spacing: { after: 260 },
-          keepNext: true,
-          children: [new TextRun({
-            text: workbook.workbookName,
-            bold: true,
-            color: '1F2D39',
-            size: 28,
-            font: 'Arial',
-          })],
-        }),
-        resultsTable,
-        new Paragraph({
-          border: { top: { color: 'DAE2E8', size: 4, style: BorderStyle.SINGLE, space: 8 } },
-          spacing: { before: 320 },
-          children: [new TextRun({
-            text: 'CONTROL VALVE SIZING  /  WORKBOOK SUMMARY',
-            color: '5E6C78',
-            size: 16,
-            font: 'Arial',
-          })],
-        }),
-      ],
-    }],
-  });
-
-  triggerDownload(await Packer.toBlob(document), `${workbook.filename}.docx`);
+  const model = createWorkbookExportModel(payload);
+  return createWordDownload(model.sheets, { title: model.title, subject: 'Cv results and operating conditions', filename: model.filename });
 }

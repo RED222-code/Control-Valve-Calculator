@@ -3,12 +3,12 @@ import { formatCv } from '../utils/formatting.js';
 import Icon from './Icon.jsx';
 import ResultDownloadActions from './ResultDownloadActions.jsx';
 
-export default function ResultsPanel({ results, service }) {
+export default function ResultsPanel({ results, service, inputs, units, temperatureUnit }) {
   const requiredCv = results ? Math.max(...CONDITIONS.map(({ key }) => results[key].cv)) : null;
   const controlling = results ? CONDITIONS.filter(({ key }) => results[key].cv === requiredCv).map(({ label }) => label).join(', ') : null;
   return (
     <section className="panel results-panel" aria-label="Calculation results">
-      <div className="section-heading"><div><h2>Calculation results</h2></div>{results && <div className="result-heading-actions"><span className="result-status complete"><span className="status-dot" />Calculated</span><ResultDownloadActions exportData={{ service, results }} /></div>}</div>
+      <div className="section-heading"><div><h2>Calculation results</h2></div>{results && <div className="result-heading-actions"><span className="result-status complete"><span className="status-dot" />Calculated</span><ResultDownloadActions exportData={{ service, results, inputs, units, temperatureUnit }} /></div>}</div>
       <div className="results-grid">
         <div className="condition-results">{CONDITIONS.map(({ key, label }, index) => (
           <div className={`condition-result condition-${key}`} key={key}>

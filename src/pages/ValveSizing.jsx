@@ -245,7 +245,7 @@ function SizingWorkspace({ restored, onClear }) {
             <SizingTable service={service} data={session.data} errors={session.errors} results={session.results} temperatureUnit={session.temperatureUnit} onTemperatureUnitChange={changeTemperatureUnit} units={session.units} onUnitChange={changeUnits} onChange={handleChange} />
             <div className="form-actions"><div className="action-buttons"><button type="submit" className="button button-primary"><Icon name="calculator" size={18} />Calculate Cv<Icon name="arrow" size={16} /></button><button type="button" className="button button-reset" onClick={reset}><Icon name="reset" size={16} />Reset</button></div>{session.feedback && <div className={`form-feedback ${session.feedback.kind}`} role="status" aria-live="polite" aria-atomic="true"><Icon name={session.feedback.kind === 'success' ? 'check' : session.feedback.kind === 'error' ? 'alert' : 'info'} size={16} /><span>{session.feedback.text}</span></div>}</div>
           </form>
-          {!workbook.activeImport && <ResultsPanel results={session.results} service={service} />}
+          {!workbook.activeImport && <ResultsPanel results={session.results} service={service} inputs={session.data} units={session.units} temperatureUnit={session.temperatureUnit} />}
           {workbook.workbookSession && <ResultsGroup session={workbook.workbookSession} onSelectAnotherSheet={selectAnotherSheet} busy={workbook.busy} onLoadCalculation={(calculation) => {
             setInputSource('excel');
             workbook.loadCalculation(calculation);

@@ -2,6 +2,21 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createResultExportModel, createWorkbookExportModel, sanitizeFilename } from '../src/utils/resultExportModel.js';
 
+test('exports saved operating inputs with selected units for each worksheet', () => {
+  const inputs = Object.fromEntries(['minimum', 'normal', 'maximum'].map((key, i) => [key,
+    { Q: String(10 + i), P1: '12', P2: '9', SG: '0.7', Y: '0.9', Z: '1', T: '25' }]));
+  const model = createWorkbookExportModel({ workbookName: 'Process.xlsx', calculations: [{
+    sheetName: 'PCV-1', service: 'gas', inputs, units: { flow: 'MMSCFD', pressure: 'bar' },
+    temperatureUnit: 'C', results: { minimumCv: 1, normalCv: 2, maximumCv: 3 },
+  }] }).sheets[0];
+  assert.deepEqual(model.operatingConditions.find(row => row.label === 'Gas flow rate'),
+    { label: 'Gas flow rate', unit: 'MMSCFD', values: ['10', '11', '12'] });
+  assert.deepEqual(model.operatingConditions.find(row => row.label === 'Pressure drop'),
+    { label: 'Pressure drop', unit: 'bar', values: ['3', '3', '3'] });
+  assert.deepEqual(model.operatingConditions.find(row => row.label === 'Temperature'),
+    { label: 'Temperature', unit: 'C', values: ['25', '25', '25'] });
+});
+
 test('builds a result-only export model from manual calculator results', () => {
   const model = createResultExportModel({
     service: 'liquid',
